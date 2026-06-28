@@ -64,16 +64,20 @@ print(f"✅ Similarity Threshold: {SIMILARITY_THRESHOLD}")
 # Retriever
 # ==========================================
 
+# ==========================================
+# Retriever (Optimized)
+# ==========================================
+
 retriever = vectorstore.as_retriever(
     search_type="mmr",
     search_kwargs={
-        "k": 5,
-        "fetch_k": 20,
-        "lambda_mult": 0.7,
+        "k": 7,
+        "fetch_k": 30,
+        "lambda_mult": 0.5,
     },
 )
 
-print("✅ Retriever Ready")
+print("✅ Optimized MMR Retriever Ready")
 
 
 # ==========================================
@@ -94,42 +98,42 @@ print("✅ Groq LLM Loaded")
 
 def format_docs(docs):
 
-    context = []
+    formatted_docs = []
 
-    for doc in docs:
+    for i, doc in enumerate(docs, start=1):
 
         source = doc.metadata.get("source", "Unknown")
         page = doc.metadata.get("page", "Unknown")
 
-        context.append(
-            f"""
-Document: {source}
-Page: {page}
+        formatted_docs.append(
+f"""
+==================================================
+Document {i}
 
-Content:
-{doc.page_content}
+Source : {source}
+
+Page   : {page}
+
+Policy Content
+
+{doc.page_content.strip()}
+==================================================
 """
         )
 
-    return "\n\n".join(context)
-
+    return "\n".join(formatted_docs)
 
 # ==========================================
 # RAG Chain
 # ==========================================
 
 rag_chain = (
-    {
-        "context": retriever | format_docs,
-        "question": RunnablePassthrough(),
-    }
-    | HR_PROMPT
+    HR_PROMPT
     | llm
     | StrOutputParser()
 )
 
-print("✅ RAG Chain Ready")
-
+print("✅ Optimized RAG Chain Ready")
 # ==========================================
 # Main Chat Function
 # ==========================================
@@ -139,10 +143,13 @@ def ask_hr_question(question):
     # Retrieve documents with scores
     results = vectorstore.similarity_search_with_score(
         question,
-        k=5
+        k=7
     )
 
     top_doc, top_score = results[0]
+    
+    # Print similarity score (for tuning)
+    print(f"Top Score: {top_score}")
 
     # Print score (for tuning)
     print("\n================================")
@@ -158,11 +165,14 @@ def ask_hr_question(question):
             "sources": []
         }
 
-    # Continue with MMR retrieval
     docs = retriever.invoke(question)
 
-    # Generate answer
-    answer = rag_chain.invoke(question)
+    context = format_docs(docs)
+
+    answer = rag_chain.invoke({
+        "context": context,
+        "question": question
+   })
 
     sources = []
 
