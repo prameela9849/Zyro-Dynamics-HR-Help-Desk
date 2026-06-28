@@ -138,26 +138,26 @@ print("✅ Optimized RAG Chain Ready")
 # Main Chat Function
 # ==========================================
 
-def ask_hr_question(question):
+# ============================================
+# Chatbot Function (Optimized)
+# ============================================
 
-    # Retrieve documents with scores
+SIMILARITY_THRESHOLD = 0.80
+
+def hr_chatbot(question):
+
+    # Retrieve with similarity scores
     results = vectorstore.similarity_search_with_score(
         question,
         k=7
     )
 
     top_doc, top_score = results[0]
-    
-    # Print similarity score (for tuning)
+
+    print(f"Question : {question}")
     print(f"Top Score: {top_score}")
 
-    # Print score (for tuning)
-    print("\n================================")
-    print("Question :", question)
-    print("Top Score:", top_score)
-    print("================================")
-
-    # Threshold check
+    # Refuse if similarity is poor
     if top_score > SIMILARITY_THRESHOLD:
 
         return {
@@ -165,15 +165,19 @@ def ask_hr_question(question):
             "sources": []
         }
 
+    # Retrieve documents using MMR
     docs = retriever.invoke(question)
 
+    # Build context
     context = format_docs(docs)
 
+    # Generate answer
     answer = rag_chain.invoke({
         "context": context,
         "question": question
-   })
+    })
 
+    # Build sources
     sources = []
 
     seen = set()
